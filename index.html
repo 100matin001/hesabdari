@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f1923" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="حساب‌داری" />
+  <title>حساب‌داری — دخل و خرج ماهانه</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1923;
+      --surface:   #1a2535;
+      --card:      #1e2d40;
+      --border:    #253347;
+      --accent:    #3ecf8e;
+      --accent2:   #f97316;
+      --danger:    #ef4444;
+      --text:      #e8f0fe;
+      --muted:     #7a91a8;
+      --income:    #3ecf8e;
+      --expense:   #f97316;
+      --radius:    14px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Vazirmatn', sans-serif;
+      font-size: 14px;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      max-width: 480px;
+      margin: 0 auto;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ─── Header ─── */
+    .header {
+      background: var(--surface);
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-title { font-size: 18px; font-weight: 700; color: var(--accent); }
+    .month-nav { display: flex; align-items: center; gap: 8px; }
+    .month-nav button {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .month-label { font-size: 13px; font-weight: 600; color: var(--muted); min-width: 70px; text-align: center; }
+
+    /* ─── Pages ─── */
+    .page { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .page.active { display: flex; }
+
+    .scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      padding-bottom: calc(80px + var(--safe-bottom));
+    }
+    .scroll-area::-webkit-scrollbar { display: none; }
+
+    /* ─── Summary Cards ─── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .summary-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+    .summary-card.full { grid-column: 1 / -1; }
+    .summary-card.balance { background: linear-gradient(135deg, #0d2b1e 0%, #1a3d2e 100%); border-color: #2a5a40; }
+    .summary-card.balance.negative { background: linear-gradient(135deg, #2b0d0d 0%, #3d1a1a 100%); border-color: #5a2a2a; }
+    .card-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+    .card-value { font-size: 20px; font-weight: 800; }
+    .card-value.income { color: var(--income); }
+    .card-value.expense { color: var(--expense); }
+    .card-value.balance-pos { color: var(--income); }
+    .card-value.balance-neg { color: var(--danger); }
+    .card-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+    /* ─── Progress bar ─── */
+    .budget-bar-wrap { margin-bottom: 16px; }
+    .budget-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+    .budget-bar-track {
+      height: 8px; background: var(--border);
+      border-radius: 99px; overflow: hidden;
+    }
+    .budget-bar-fill {
+      height: 100%; border-radius: 99px;
+      background: var(--accent);
+      transition: width 0.5s ease, background 0.3s;
+    }
+
+    /* ─── Transaction list ─── */
+    .section-title {
+      font-size: 12px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px; margin-top: 4px;
+    }
+    .tx-list { display: flex; flex-direction: column; gap: 8px; }
+    .tx-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      display: flex; align-items: center; gap: 12px;
+      position: relative;
+      animation: slideIn 0.2s ease;
+    }
+    @keyframes slideIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+    .tx-icon {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .tx-icon.income-bg { background: #0d2b1e; }
+    .tx-icon.expense-bg { background: #2b1a0d; }
+    .tx-info { flex: 1; min-width: 0; }
+    .tx-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-meta { font-size: 11px; color: var(--muted); }
+    .tx-amount { font-size: 14px; font-weight: 700; flex-shrink: 0; }
+    .tx-amount.income { color: var(--income); }
+    .tx-amount.expense { color: var(--expense); }
+    .tx-delete {
+      position: absolute;
+      left: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none;
+      color: var(--muted); font-size: 16px;
+      cursor: pointer; padding: 4px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .tx-item:hover .tx-delete { opacity: 1; }
+    .tx-item:active .tx-delete { opacity: 1; }
+
+    .empty-state {
+      text-align: center; padding: 40px 20px;
+      color: var(--muted);
+    }
+    .empty-state .emoji { font-size: 40px; margin-bottom: 12px; }
+    .empty-state p { font-size: 13px; line-height: 1.6; }
+
+    /* ─── Category breakdown ─── */
+    .cat-list { display: flex; flex-direction: column; gap: 10px; }
+    .cat-item { display: flex; align-items: center; gap: 10px; }
+    .cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .cat-info { flex: 1; }
+    .cat-name { font-size: 12px; font-weight: 600; margin-bottom: 3px; }
+    .cat-bar-track { height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .cat-bar-fill { height: 100%; border-radius: 99px; }
+    .cat-amount { font-size: 12px; font-weight: 700; color: var(--expense); flex-shrink: 0; }
+
+    /* ─── Bottom Nav ─── */
+    .bottom-nav {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      padding-bottom: var(--safe-bottom);
+      z-index: 10;
+    }
+    .nav-btn {
+      flex: 1;
+      background: none; border: none;
+      color: var(--muted);
+      padding: 10px 0 8px;
+      cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      font-family: inherit;
+      transition: color 0.2s;
+    }
+    .nav-btn .nav-icon { font-size: 20px; }
+    .nav-btn .nav-label { font-size: 10px; font-weight: 600; }
+    .nav-btn.active { color: var(--accent); }
+
+    /* ─── FAB ─── */
+    .fab {
+      position: fixed;
+      bottom: calc(70px + var(--safe-bottom));
+      left: 50%; transform: translateX(-50%);
+      width: 56px; height: 56px;
+      background: var(--accent);
+      border: none; border-radius: 50%;
+      font-size: 26px; color: #0f1923;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(62,207,142,0.4);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 20;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .fab:active { transform: translateX(-50%) scale(0.92); }
+
+    /* ─── Modal ─── */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: 20px 20px 0 0;
+      width: 100%; max-width: 480px;
+      padding: 20px 20px calc(20px + var(--safe-bottom));
+      animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 99px; margin: 0 auto 20px; }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; }
+
+    .type-toggle {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px; margin-bottom: 16px;
+    }
+    .type-btn {
+      padding: 10px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      background: none;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .type-btn.active-income { border-color: var(--income); color: var(--income); background: #0d2b1e; }
+    .type-btn.active-expense { border-color: var(--expense); color: var(--expense); background: #2b1a0d; }
+
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+    .field input, .field select {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      padding: 11px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field input:focus, .field select:focus { border-color: var(--accent); }
+    .field select option { background: var(--card); }
+
+    .cat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .cat-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 4px;
+      cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      transition: all 0.15s;
+    }
+    .cat-btn .cat-emoji { font-size: 20px; }
+    .cat-btn .cat-name-s { font-size: 9px; color: var(--muted); font-family: inherit; }
+    .cat-btn.selected { border-color: var(--accent); background: #0d2b1e; }
+    .cat-btn.selected-exp { border-color: var(--expense); background: #2b1a0d; }
+
+    .btn-primary {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      border: none; border-radius: 12px;
+      color: #0f1923;
+      font-family: inherit;
+      font-size: 15px; font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:active { opacity: 0.85; }
+
+    /* ─── Settings page ─── */
+    .settings-section { margin-bottom: 20px; }
+    .settings-label { font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .settings-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .settings-row {
+      display: flex; align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-row-icon { font-size: 18px; }
+    .settings-row-text { flex: 1; }
+    .settings-row-title { font-size: 13px; font-weight: 600; }
+    .settings-row-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .settings-row input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 6px 10px;
+      width: 130px;
+      text-align: left;
+      outline: none;
+    }
+    .settings-row input:focus { border-color: var(--accent); }
+
+    .tag { 
+      display: inline-block;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 10px;
+      padding: 2px 7px;
+      color: var(--muted);
+      margin-right: 6px;
+    }
+
+    /* ─── Toast ─── */
+    .toast {
+      position: fixed;
+      bottom: calc(80px + var(--safe-bottom) + 12px);
+      left: 50%; transform: translateX(-50%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 13px; font-weight: 600;
+      z-index: 200;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-title">💰 حساب‌داری</div>
+    <div class="month-nav">
+      <button onclick="changeMonth(-1)">›</button>
+      <div class="month-label" id="monthLabel"></div>
+      <button onclick="changeMonth(1)">‹</button>
+    </div>
+  </div>
+
+  <!-- Page: Dashboard -->
+  <div class="page active" id="page-home">
+    <div class="scroll-area">
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="card-label">درآمد ماه</div>
+          <div class="card-value income" id="totalIncome">۰</div>
+          <div class="card-sub">تومان</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-label">هزینه ماه</div>
+          <div class="card-value expense" id="totalExpense">۰</div>
+          <div class="card-sub">تومان</div>
+        </div>
+        <div class="summary-card full balance" id="balanceCard">
+          <div class="card-label">مانده حساب</div>
+          <div class="card-value" id="totalBalance">۰</div>
+          <div class="card-sub" id="balanceSub">تومان</div>
+        </div>
+      </div>
+
+      <div class="budget-bar-wrap" id="budgetBarWrap">
+        <div class="budget-bar-label">
+          <span>میزان خرج از درآمد</span>
+          <span id="budgetPercent">۰٪</span>
+        </div>
+        <div class="budget-bar-track">
+          <div class="budget-bar-fill" id="budgetFill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="section-title">تراکنش‌های اخیر</div>
+      <div class="tx-list" id="txList">
+        <div class="empty-state">
+          <div class="emoji">📊</div>
+          <p>هنوز تراکنشی ثبت نشده.<br/>روی دکمه + بزنید و شروع کنید.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Page: Transactions -->
+  <div class="page" id="page-transactions">
+    <div class="scroll-area">
+      <div class="section-title">همه تراکنش‌ها</div>
+      <div class="tx-list" id="allTxList">
+        <div class="empty-state">
+          <div class="emoji">🗂️</div>
+          <p>تراکنشی یافت نشد.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Analytics -->
+  <div class="page" id="page-analytics">
+    <div class="scroll-area">
+      <div class="section-title">تحلیل هزینه‌ها</div>
+      <div id="analyticsContent">
+        <div class="empty-state">
+          <div class="emoji">📈</div>
+          <p>هزینه‌ای ثبت نشده تا تحلیل نمایش داده شود.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Settings -->
+  <div class="page" id="page-settings">
+    <div class="scroll-area">
+
+      <div class="settings-section">
+        <div class="settings-label">اطلاعات درآمد</div>
+        <div class="settings-card">
+          <div class="settings-row">
+            <div class="settings-row-icon">💵</div>
+            <div class="settings-row-text">
+              <div class="settings-row-title">درآمد ماهانه پیش‌فرض</div>
+              <div class="settings-row-sub">مبنای محاسبه مانده</div>
+            </div>
+            <input type="number" id="defaultIncomeInput" placeholder="مثلاً 10000000" oninput="saveDefaultIncome()" />
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-label">مدیریت داده</div>
+        <div class="settings-card">
+          <div class="settings-row" onclick="exportData()" style="cursor:pointer">
+            <div class="settings-row-icon">📤</div>
+            <div class="settings-row-text">
+              <div class="settings-row-title">خروجی داده‌ها</div>
+              <div class="settings-row-sub">دانلود به صورت JSON</div>
+            </div>
+          </div>
+          <div class="settings-row" onclick="clearAllData()" style="cursor:pointer">
+            <div class="settings-row-icon">🗑️</div>
+            <div class="settings-row-text">
+              <div class="settings-row-title">پاک‌کردن همه داده‌ها</div>
+              <div class="settings-row-sub">غیرقابل بازگشت</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-label">درباره اپ</div>
+        <div class="settings-card">
+          <div class="settings-row">
+            <div class="settings-row-icon">ℹ️</div>
+            <div class="settings-row-text">
+              <div class="settings-row-title">حساب‌داری <span class="tag">v1.0</span></div>
+              <div class="settings-row-sub">مدیریت دخل و خرج ماهانه</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FAB -->
+  <button class="fab" onclick="openModal()">+</button>
+
+  <!-- Bottom Nav -->
+  <div class="bottom-nav">
+    <button class="nav-btn active" onclick="showPage('home',this)">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">خانه</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('transactions',this)">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">تراکنش‌ها</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('analytics',this)">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">تحلیل</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('settings',this)">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">تنظیمات</span>
+    </button>
+  </div>
+</div>
+
+<!-- Add Transaction Modal -->
+<div class="modal-overlay" id="modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">ثبت تراکنش جدید</div>
+
+    <div class="type-toggle">
+      <button class="type-btn active-expense" id="btnExpense" onclick="setType('expense')">➖ هزینه</button>
+      <button class="type-btn" id="btnIncome" onclick="setType('income')">➕ درآمد</button>
+    </div>
+
+    <div class="field">
+      <label>مبلغ (تومان)</label>
+      <input type="number" id="amountInput" placeholder="مثلاً ۵۰۰۰۰۰" />
+    </div>
+
+    <div class="field">
+      <label>توضیح</label>
+      <input type="text" id="descInput" placeholder="مثلاً: خرید نان، اجاره، حقوق…" />
+    </div>
+
+    <div class="field" id="catFieldWrap">
+      <label>دسته‌بندی</label>
+      <div class="cat-grid" id="catGrid"></div>
+    </div>
+
+    <div class="field">
+      <label>تاریخ</label>
+      <input type="date" id="dateInput" />
+    </div>
+
+    <button class="btn-primary" onclick="addTransaction()">ثبت تراکنش</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── State ───────────────────────────────
+let currentMonth = new Date().getMonth();
+let currentYear  = new Date().getFullYear();
+let currentType  = 'expense';
+let selectedCat  = null;
+
+const CATS_EXPENSE = [
+  { id:'food',      emoji:'🍔', name:'غذا' },
+  { id:'transport', emoji:'🚗', name:'حمل‌ونقل' },
+  { id:'home',      emoji:'🏠', name:'مسکن' },
+  { id:'health',    emoji:'💊', name:'سلامت' },
+  { id:'shopping',  emoji:'🛍️', name:'خرید' },
+  { id:'entertain', emoji:'🎮', name:'تفریح' },
+  { id:'edu',       emoji:'📚', name:'آموزش' },
+  { id:'other',     emoji:'📦', name:'سایر' },
+];
+const CATS_INCOME = [
+  { id:'salary',    emoji:'💰', name:'حقوق' },
+  { id:'freelance', emoji:'💻', name:'فری‌لنس' },
+  { id:'invest',    emoji:'📈', name:'سرمایه‌گذاری' },
+  { id:'gift',      emoji:'🎁', name:'هدیه' },
+  { id:'rental',    emoji:'🏘️', name:'اجاره' },
+  { id:'other2',    emoji:'✨', name:'سایر' },
+];
+
+const CAT_COLORS = {
+  food:'#f97316', transport:'#3b82f6', home:'#8b5cf6',
+  health:'#ef4444', shopping:'#ec4899', entertain:'#f59e0b',
+  edu:'#06b6d4', other:'#6b7280',
+  salary:'#3ecf8e', freelance:'#10b981', invest:'#14b8a6',
+  gift:'#a78bfa', rental:'#fb923c', other2:'#94a3b8',
+};
+
+function loadData() {
+  try { return JSON.parse(localStorage.getItem('budgetData') || '[]'); } catch { return []; }
+}
+function saveData(d) { localStorage.setItem('budgetData', JSON.stringify(d)); }
+function getDefaultIncome() { return parseFloat(localStorage.getItem('defaultIncome') || '0'); }
+
+const MONTHS_FA = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور',
+                    'مهر','آبان','آذر','دی','بهمن','اسفند'];
+// Rough Gregorian→Jalali month mapping (approximate display)
+const MONTHS_FA_GR = ['ژانویه','فوریه','مارس','آوریل','مه','ژوئن',
+                       'ژوئیه','اوت','سپتامبر','اکتبر','نوامبر','دسامبر'];
+
+function toPersianNum(n) {
+  return String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+}
+function formatMoney(n) {
+  return toPersianNum(Math.abs(Math.round(n)).toLocaleString('en'));
+}
+
+// ─── Month navigation ─────────────────────
+function changeMonth(d) {
+  currentMonth += d;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0)  { currentMonth = 11; currentYear--; }
+  updateAll();
+}
+function updateMonthLabel() {
+  document.getElementById('monthLabel').textContent = MONTHS_FA_GR[currentMonth] + ' ' + toPersianNum(currentYear);
+}
+
+// ─── Core update ──────────────────────────
+function getMonthTx() {
+  const all = loadData();
+  return all.filter(t => {
+    const d = new Date(t.date);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+}
+
+function updateAll() {
+  updateMonthLabel();
+  const txs = getMonthTx();
+  const totalInc = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const totalExp = txs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  const defaultInc = getDefaultIncome();
+  const effectiveInc = defaultInc > 0 ? defaultInc + totalInc : totalInc;
+  const balance = effectiveInc - totalExp;
+
+  document.getElementById('totalIncome').textContent  = formatMoney(totalInc + (defaultInc||0));
+  document.getElementById('totalExpense').textContent = formatMoney(totalExp);
+
+  const balEl = document.getElementById('totalBalance');
+  const balCard = document.getElementById('balanceCard');
+  balEl.className = 'card-value ' + (balance >= 0 ? 'balance-pos' : 'balance-neg');
+  balCard.className = 'summary-card full balance ' + (balance < 0 ? 'negative' : '');
+  balEl.textContent = (balance < 0 ? '-' : '') + formatMoney(balance);
+  document.getElementById('balanceSub').textContent = 'تومان ' + (balance<0?'(کسری)':'(مانده)');
+
+  const pct = effectiveInc > 0 ? Math.min(100, (totalExp/effectiveInc)*100) : 0;
+  const fill = document.getElementById('budgetFill');
+  fill.style.width = pct + '%';
+  fill.style.background = pct > 90 ? '#ef4444' : pct > 70 ? '#f97316' : '#3ecf8e';
+  document.getElementById('budgetPercent').textContent = toPersianNum(Math.round(pct)) + '٪';
+
+  renderTxList('txList', txs.slice().reverse().slice(0,10));
+  renderTxList('allTxList', loadData().slice().reverse());
+  renderAnalytics(txs);
+}
+
+function renderTxList(id, txs) {
+  const el = document.getElementById(id);
+  if (!txs.length) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">${id==='txList'?'📊':'🗂️'}</div><p>تراکنشی ثبت نشده.</p></div>`;
+    return;
+  }
+  el.innerHTML = txs.map(t => {
+    const cats = t.type==='income' ? CATS_INCOME : CATS_EXPENSE;
+    const cat = cats.find(c=>c.id===t.cat) || {emoji:'📦', name:'سایر'};
+    const d = new Date(t.date);
+    const dateStr = toPersianNum(d.getDate()) + ' ' + MONTHS_FA_GR[d.getMonth()];
+    return `
+      <div class="tx-item">
+        <div class="tx-icon ${t.type==='income'?'income-bg':'expense-bg'}">${cat.emoji}</div>
+        <div class="tx-info">
+          <div class="tx-title">${escHtml(t.desc || cat.name)}</div>
+          <div class="tx-meta">${cat.name} · ${dateStr}</div>
+        </div>
+        <div class="tx-amount ${t.type}">${t.type==='income'?'+':'-'}${formatMoney(t.amount)} ت</div>
+        <button class="tx-delete" onclick="deleteTx('${t.id}')">✕</button>
+      </div>`;
+  }).join('');
+}
+
+function renderAnalytics(txs) {
+  const expenses = txs.filter(t=>t.type==='expense');
+  const totalExp = expenses.reduce((s,t)=>s+t.amount,0);
+  const el = document.getElementById('analyticsContent');
+
+  if (!expenses.length) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">📈</div><p>هزینه‌ای ثبت نشده.</p></div>`;
+    return;
+  }
+
+  const bycat = {};
+  expenses.forEach(t => { bycat[t.cat] = (bycat[t.cat]||0) + t.amount; });
+  const sorted = Object.entries(bycat).sort((a,b)=>b[1]-a[1]);
+
+  el.innerHTML = `
+    <div class="summary-grid" style="margin-bottom:20px">
+      <div class="summary-card">
+        <div class="card-label">تعداد هزینه‌ها</div>
+        <div class="card-value" style="color:var(--text)">${toPersianNum(expenses.length)}</div>
+        <div class="card-sub">تراکنش</div>
+      </div>
+      <div class="summary-card">
+        <div class="card-label">میانگین روزانه</div>
+        <div class="card-value expense">${formatMoney(totalExp/30)}</div>
+        <div class="card-sub">تومان</div>
+      </div>
+    </div>
+    <div class="section-title">هزینه بر اساس دسته‌بندی</div>
+    <div class="cat-list">
+      ${sorted.map(([cid, amt]) => {
+        const cat = CATS_EXPENSE.find(c=>c.id===cid) || {emoji:'📦',name:'سایر'};
+        const color = CAT_COLORS[cid] || '#6b7280';
+        const pct = (amt/totalExp)*100;
+        return `
+          <div class="cat-item">
+            <div class="cat-dot" style="background:${color}"></div>
+            <div class="cat-info">
+              <div class="cat-name">${cat.emoji} ${cat.name}</div>
+              <div class="cat-bar-track">
+                <div class="cat-bar-fill" style="width:${pct}%;background:${color}"></div>
+              </div>
+            </div>
+            <div class="cat-amount">${formatMoney(amt)} ت</div>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ─── Modal ────────────────────────────────
+function openModal() {
+  const modal = document.getElementById('modal');
+  modal.classList.add('open');
+  document.getElementById('amountInput').value = '';
+  document.getElementById('descInput').value = '';
+  document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
+  selectedCat = null;
+  setType('expense');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function closeModalOutside(e) { if (e.target.id==='modal') closeModal(); }
+
+function setType(type) {
+  currentType = type;
+  selectedCat = null;
+  document.getElementById('btnExpense').className = 'type-btn ' + (type==='expense'?'active-expense':'');
+  document.getElementById('btnIncome').className  = 'type-btn ' + (type==='income'?'active-income':'');
+  renderCatGrid();
+}
+
+function renderCatGrid() {
+  const cats = currentType==='income' ? CATS_INCOME : CATS_EXPENSE;
+  const grid = document.getElementById('catGrid');
+  grid.innerHTML = cats.map(c => `
+    <button class="cat-btn" id="catbtn-${c.id}" onclick="selectCat('${c.id}')">
+      <span class="cat-emoji">${c.emoji}</span>
+      <span class="cat-name-s">${c.name}</span>
+    </button>`).join('');
+}
+
+function selectCat(id) {
+  selectedCat = id;
+  document.querySelectorAll('.cat-btn').forEach(b => {
+    b.className = 'cat-btn';
+  });
+  const sel = document.getElementById('catbtn-'+id);
+  if (sel) sel.classList.add(currentType==='income'?'selected':'selected-exp');
+}
+
+function addTransaction() {
+  const amt  = parseFloat(document.getElementById('amountInput').value);
+  const desc = document.getElementById('descInput').value.trim();
+  const date = document.getElementById('dateInput').value;
+
+  if (!amt || amt <= 0) { showToast('مبلغ را وارد کنید'); return; }
+  if (!date) { showToast('تاریخ را انتخاب کنید'); return; }
+
+  const tx = {
+    id: Date.now().toString(),
+    type: currentType,
+    amount: amt,
+    desc: desc,
+    cat: selectedCat || (currentType==='income'?'salary':'other'),
+    date: date,
+  };
+
+  const data = loadData();
+  data.push(tx);
+  saveData(data);
+  closeModal();
+  updateAll();
+  showToast('تراکنش ثبت شد ✓');
+}
+
+function deleteTx(id) {
+  if (!confirm('این تراکنش حذف شود؟')) return;
+  const data = loadData().filter(t=>t.id!==id);
+  saveData(data);
+  updateAll();
+  showToast('تراکنش حذف شد');
+}
+
+// ─── Settings ─────────────────────────────
+function saveDefaultIncome() {
+  const val = document.getElementById('defaultIncomeInput').value;
+  localStorage.setItem('defaultIncome', val);
+  updateAll();
+}
+
+function exportData() {
+  const data = loadData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'budget_data.json';
+  a.click();
+}
+
+function clearAllData() {
+  if (!confirm('همه داده‌ها پاک شود؟ این عملیات برگشت‌پذیر نیست.')) return;
+  localStorage.removeItem('budgetData');
+  updateAll();
+  showToast('همه داده‌ها پاک شدند');
+}
+
+// ─── Navigation ───────────────────────────
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if (btn) btn.classList.add('active');
+
+  if (name==='settings') {
+    const v = getDefaultIncome();
+    document.getElementById('defaultIncomeInput').value = v || '';
+  }
+}
+
+// ─── Toast ────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Init ─────────────────────────────────
+renderCatGrid();
+updateAll();
+
+// Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
